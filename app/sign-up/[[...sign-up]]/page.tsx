@@ -17,8 +17,13 @@ export default function SignUpPage() {
             elements: {
               rootBox: "mx-auto",
               card: "shadow-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800",
+              formButtonPrimary: "bg-primary-600 hover:bg-primary-700 text-white",
+              headerTitle: "text-gray-900 dark:text-white",
+              headerSubtitle: "text-gray-600 dark:text-gray-400",
             }
           }}
+          routing="path"
+          path="/sign-up"
         />
       </div>
     </div>
