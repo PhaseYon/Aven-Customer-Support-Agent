@@ -10,13 +10,15 @@
     "vectorize": "ts-node --project tsconfig.scripts.json scripts/vectorize-aven-data.ts",
     "test-chunking": "ts-node --project tsconfig.scripts.json scripts/test-chunking.ts",
     "test-weaviate": "ts-node --project tsconfig.scripts.json scripts/test-weaviate-connection.ts",
-    "test-rag": "ts-node --project tsconfig.scripts.json scripts/test-rag.ts"
+    "test-rag": "ts-node --project tsconfig.scripts.json scripts/test-rag.ts",
+    "test-vapi": "ts-node --project tsconfig.scripts.json scripts/test-vapi.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.27.1",
     "@google/genai": "^1.11.0",
     "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.52.1",
+    "@vapi-ai/web": "^1.0.0",
     "dotenv": "^17.2.1",
     "googleapis": "^154.0.0",
     "langchain": "^0.3.30",

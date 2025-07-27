@@ -6,6 +6,7 @@ import { Send, Bot, User, Loader2, Trash2, AlertCircle, Calendar } from 'lucide-
 import ChatMessage from './ChatMessage'
 import ConfirmationModal from './ConfirmationModal'
 import MeetingRequestModal from './MeetingRequestModal'
+import VoiceButton from './VoiceButton'
 import { getChatHistory, saveChatMessage, clearChatHistory, testDatabaseConnection, getRateLimitInfo } from '@/lib/database'
 import { isRateLimitEnabled } from '@/lib/config'
 
@@ -300,6 +301,12 @@ export default function ChatInterface() {
             </div>
           </div>
           <div className="flex items-center space-x-2">
+            <VoiceButton 
+              onError={(error) => {
+                console.error('Voice error:', error)
+                // You could show a toast notification here
+              }}
+            />
             <button
               onClick={handleRequestMeeting}
               className="px-3 py-2 bg-white/20 text-white hover:bg-white/30 rounded-lg transition-colors flex items-center space-x-2"
