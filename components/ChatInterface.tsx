@@ -30,7 +30,7 @@ export default function ChatInterface() {
 
   // Helper function to generate welcome message
   const getWelcomeMessage = () => {
-    return `Hello${user?.firstName ? ` ${user.firstName}` : ''}! I'm your AI assistant. How can I help you today?`
+    return `Hi${user?.firstName ? ` ${user.firstName}` : ''}! I'm Sarah, your Aven support specialist. I'm here to help you with any questions about your account, our services, or anything else you need assistance with. What can I help you with today?`
   }
 
   // Load chat history from database
@@ -152,8 +152,7 @@ export default function ChatInterface() {
         },
         body: JSON.stringify({ 
           message: inputMessage,
-          userId: user?.id,
-          userName: user?.fullName || user?.emailAddresses[0]?.emailAddress
+          userId: user?.id
         })
       })
 

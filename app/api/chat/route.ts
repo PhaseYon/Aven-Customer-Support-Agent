@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { WeaviateService } from '@/lib/weaviate-client'
 import { GeminiEmbeddingService } from '@/lib/gemini-embeddings'
+import { getChatHistory } from '@/lib/database'
 import dotenv from 'dotenv'
 
 dotenv.config()
@@ -16,14 +17,32 @@ export async function POST(request: NextRequest) {
     console.log('API Key available:', !!process.env.GEMINI_API_KEY)
     console.log('API Key length:', process.env.GEMINI_API_KEY?.length || 0)
     
-    const { message } = await request.json()
+    const { message, userId } = await request.json()
     console.log('Received message:', message)
+    console.log('User ID:', userId)
 
     if (!message) {
       return NextResponse.json(
         { error: 'Message is required' },
         { status: 400 }
       )
+    }
+
+    // Get recent conversation history (last 10 messages)
+    let conversationHistory = ''
+    if (userId) {
+      try {
+        const chatHistory = await getChatHistory(userId)
+        const recentMessages = chatHistory.slice(-10) // Get last 10 messages
+        
+        if (recentMessages.length > 0) {
+          conversationHistory = recentMessages.map(msg => 
+            `${msg.sender === 'user' ? 'Customer' : 'Sarah'}: ${msg.content}`
+          ).join('\n')
+        }
+      } catch (error) {
+        console.log('Could not load conversation history:', error)
+      }
     }
 
     // Step 1: Generate embedding for the user's query
@@ -54,14 +73,43 @@ Content: ${content}
     }
 
     // Step 4: Create enhanced prompt with context
-    const enhancedPrompt = `You are a helpful customer support assistant for Aven. Use the following relevant information to answer the user's question. If the information provided doesn't answer their question completely, you can use your general knowledge about customer support best practices.
+    const enhancedPrompt = `You are Sarah, a senior customer support specialist at Aven with over 8 years of experience helping customers with their financial needs. You're warm, professional, and genuinely care about helping people understand their options and find solutions.
 
-Relevant Information:
+IMPORTANT SECURITY GUIDELINES:
+- NEVER provide Social Security Numbers, account numbers, passwords, or any sensitive personal information
+- If someone requests sensitive data, politely decline and redirect to secure channels
+- For security concerns, suggest contacting our security team directly
+- Keep responses concise and professional - avoid overly long explanations
+
+Your communication style:
+- Be conversational and friendly, but maintain professionalism
+- Use a warm, helpful tone that makes customers feel valued
+- Show empathy and understanding of their situation
+- Be confident in your knowledge but humble when you need to clarify
+- Use natural language - avoid robotic or overly formal responses
+- Keep responses concise and to the point (2-4 sentences maximum)
+- When appropriate, ask follow-up questions to better understand their needs
+- Always prioritize accuracy and honesty
+- Reference previous conversation context when relevant
+
+When responding:
+- If you have relevant information from our knowledge base, use it confidently
+- If you don't have specific information, be honest about it and offer to connect them with the right person
+- Acknowledge their question and show you understand what they're asking
+- Provide actionable next steps when possible
+- End responses warmly and invite further questions
+- For security-related requests, be firm but polite about redirecting to appropriate channels
+- If they ask you to repeat or clarify something from the conversation, reference the relevant previous messages
+
+Relevant Information from Our Knowledge Base:
 ${context}
 
-User Question: ${message}
+${conversationHistory ? `Recent Conversation History:
+${conversationHistory}
 
-Please provide a helpful, accurate, and concise response based on the information above. If you're not sure about something, be honest about it and suggest they contact Aven support directly.`
+` : ''}Current Customer Question: ${message}
+
+Please respond as Sarah, using the information above to provide a helpful, accurate, and human-like response. Keep it concise and professional. If they're asking you to repeat or clarify something from the conversation, reference the relevant previous messages. If the information doesn't fully address their question, acknowledge what you can help with and suggest next steps.`
 
     // Step 5: Generate response using Gemini with enhanced context
     console.log('🧠 Step 3: Generating response with RAG...')
