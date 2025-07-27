@@ -21,6 +21,12 @@ export default function ChatInterface() {
   const [isTyping, setIsTyping] = useState(false)
   const [isLoadingHistory, setIsLoadingHistory] = useState(true)
   const [showClearConfirmation, setShowClearConfirmation] = useState(false)
+  const [isClient, setIsClient] = useState(false)
+
+  // Ensure we're on the client side
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   // Helper function to generate welcome message
   const getWelcomeMessage = () => {
@@ -29,53 +35,70 @@ export default function ChatInterface() {
 
   // Load chat history from database
   useEffect(() => {
+    if (!isClient) return
+
     const loadChatHistory = async () => {
-      if (user?.id) {
-        setIsLoadingHistory(true)
-        try {
-          // Test database connection first
-          const isConnected = await testDatabaseConnection()
+      // Show welcome message immediately if no user
+      if (!user?.id) {
+        const welcomeMessage = getWelcomeMessage()
+        setMessages([{
+          id: '1',
+          content: welcomeMessage,
+          sender: 'bot',
+          timestamp: new Date()
+        }])
+        setIsLoadingHistory(false)
+        return
+      }
+
+      setIsLoadingHistory(true)
+      
+      // Add timeout to prevent infinite loading
+      const timeoutId = setTimeout(() => {
+        console.log('Loading timeout reached, showing welcome message')
+        const welcomeMessage = getWelcomeMessage()
+        setMessages([{
+          id: '1',
+          content: welcomeMessage,
+          sender: 'bot',
+          timestamp: new Date()
+        }])
+        setIsLoadingHistory(false)
+      }, 5000) // 5 second timeout
+
+      try {
+        // Test database connection first
+        const isConnected = await testDatabaseConnection()
+        
+        if (isConnected) {
+          const history = await getChatHistory(user.id)
           
-          if (isConnected) {
-            const history = await getChatHistory(user.id)
-            
-            if (history.length > 0) {
-              // Convert database format to component format
-              const formattedHistory = history.map(msg => ({
-                id: msg.id,
-                content: msg.content,
-                sender: msg.sender,
-                timestamp: new Date(msg.timestamp)
-              }))
-              setMessages(formattedHistory)
-            } else {
-              // Show welcome message if no history and save it to database
-              const welcomeMessage = getWelcomeMessage()
-              
-              setMessages([{
-                id: '1',
-                content: welcomeMessage,
-                sender: 'bot',
-                timestamp: new Date()
-              }])
-              
-              // Save welcome message to database
-              await saveChatMessage(user.id, welcomeMessage, 'bot')
-            }
+          if (history.length > 0) {
+            // Convert database format to component format
+            const formattedHistory = history.map(msg => ({
+              id: msg.id,
+              content: msg.content,
+              sender: msg.sender,
+              timestamp: new Date(msg.timestamp)
+            }))
+            setMessages(formattedHistory)
           } else {
-            // Database not available, show welcome message
-            console.log('Database not available, showing welcome message')
+            // Show welcome message if no history and save it to database
             const welcomeMessage = getWelcomeMessage()
+            
             setMessages([{
               id: '1',
               content: welcomeMessage,
               sender: 'bot',
               timestamp: new Date()
             }])
+            
+            // Save welcome message to database
+            await saveChatMessage(user.id, welcomeMessage, 'bot')
           }
-        } catch (error) {
-          console.error('Error loading chat history:', error)
-          // Show welcome message on error
+        } else {
+          // Database not available, show welcome message
+          console.log('Database not available, showing welcome message')
           const welcomeMessage = getWelcomeMessage()
           setMessages([{
             id: '1',
@@ -83,14 +106,25 @@ export default function ChatInterface() {
             sender: 'bot',
             timestamp: new Date()
           }])
-        } finally {
-          setIsLoadingHistory(false)
         }
+      } catch (error) {
+        console.error('Error loading chat history:', error)
+        // Show welcome message on error
+        const welcomeMessage = getWelcomeMessage()
+        setMessages([{
+          id: '1',
+          content: welcomeMessage,
+          sender: 'bot',
+          timestamp: new Date()
+        }])
+      } finally {
+        clearTimeout(timeoutId)
+        setIsLoadingHistory(false)
       }
     }
 
     loadChatHistory()
-  }, [user?.id])
+  }, [user?.id, isClient])
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || !user?.id) return
@@ -214,14 +248,14 @@ export default function ChatInterface() {
 
       {/* Messages */}
       <div className="h-96 overflow-y-auto chat-messages p-4 space-y-4 bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-        {isLoadingHistory ? (
+        {isLoadingHistory && isClient ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
               <Loader2 className="w-8 h-8 animate-spin text-primary-600 mx-auto mb-2" />
               <p className="text-gray-500 dark:text-gray-400">Loading chat history...</p>
             </div>
           </div>
-        ) : (
+        ) : messages.length > 0 ? (
           <>
             {messages.map((message) => (
               <ChatMessage key={message.id} message={message} />
@@ -234,6 +268,12 @@ export default function ChatInterface() {
               </div>
             )}
           </>
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <p className="text-gray-500 dark:text-gray-400">Welcome! How can I help you today?</p>
+            </div>
+          </div>
         )}
       </div>
 
