@@ -127,3 +127,6 @@ temp/
 # Backup files
 *.bak
 *.backup
+
+# Data files
+aven-data.txt
