@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { Send, Bot, User, Loader2, Trash2 } from 'lucide-react'
 import ChatMessage from './ChatMessage'
+import ConfirmationModal from './ConfirmationModal'
 import { getChatHistory, saveChatMessage, clearChatHistory, testDatabaseConnection } from '@/lib/database'
 
 interface Message {
@@ -19,6 +20,7 @@ export default function ChatInterface() {
   const [inputMessage, setInputMessage] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [isLoadingHistory, setIsLoadingHistory] = useState(true)
+  const [showClearConfirmation, setShowClearConfirmation] = useState(false)
 
   // Helper function to generate welcome message
   const getWelcomeMessage = () => {
@@ -173,6 +175,10 @@ export default function ChatInterface() {
     }
   }
 
+  const handleClearHistoryClick = () => {
+    setShowClearConfirmation(true)
+  }
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -197,7 +203,7 @@ export default function ChatInterface() {
             </div>
           </div>
           <button
-            onClick={handleClearHistory}
+            onClick={handleClearHistoryClick}
             className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
             title="Clear chat history"
           >
@@ -258,6 +264,18 @@ export default function ChatInterface() {
           Press Enter to send, Shift+Enter for new line
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showClearConfirmation}
+        onClose={() => setShowClearConfirmation(false)}
+        onConfirm={handleClearHistory}
+        title="Clear Chat History"
+        message="Are you sure you want to clear your chat history? This action cannot be undone."
+        confirmText="Clear History"
+        cancelText="Cancel"
+        type="danger"
+      />
     </div>
   )
 } 
