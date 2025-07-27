@@ -169,6 +169,13 @@ export default function ChatInterface() {
         sender: 'bot',
         timestamp: new Date()
       }
+      
+      // Log RAG usage for debugging
+      if (data.contextUsed) {
+        console.log(`🤖 RAG used: Retrieved ${data.documentsRetrieved} relevant documents`)
+      } else {
+        console.log('🤖 No relevant documents found, using general knowledge')
+      }
       setMessages(prev => [...prev, botMessage])
       
       // Save bot message to database
