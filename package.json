@@ -11,7 +11,8 @@
     "test-chunking": "ts-node --project tsconfig.scripts.json scripts/test-chunking.ts",
     "test-weaviate": "ts-node --project tsconfig.scripts.json scripts/test-weaviate-connection.ts",
     "test-rag": "ts-node --project tsconfig.scripts.json scripts/test-rag.ts",
-    "test-vapi": "ts-node --project tsconfig.scripts.json scripts/test-vapi.ts"
+    "test-vapi": "ts-node --project tsconfig.scripts.json scripts/test-vapi.ts",
+    "test-voice-scheduling": "ts-node --project tsconfig.scripts.json scripts/test-voice-scheduling.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.27.1",

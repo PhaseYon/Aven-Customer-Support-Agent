@@ -11,6 +11,8 @@ This guide will help you set up Vapi voice AI integration for your Aven customer
 - **RAG Integration** - Uses your existing Weaviate knowledge base
 - **Text-to-Speech** - AI responses are spoken back to user
 - **Natural Conversation Flow** - Seamless voice interaction
+- **Voice Meeting Scheduling** - Schedule meetings through natural voice conversation
+- **Google Calendar Integration** - Creates actual calendar events and sends invites
 
 ## Setup Instructions
 
@@ -61,7 +63,64 @@ npm install
    - Add your webhook URL
    - Set the webhook to handle function calls
 
-### 5. Test the Integration
+### 5. Add Functions to Your Assistant
+
+1. **Go to your Assistant settings** in the Vapi dashboard
+2. **Add the following functions** to enable meeting scheduling:
+
+#### Function 1: Search Aven Knowledge
+```json
+{
+  "name": "search_aven_knowledge",
+  "description": "Search Aven knowledge base for relevant information",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "The search query"
+      }
+    },
+    "required": ["query"]
+  }
+}
+```
+
+#### Function 2: Schedule Meeting
+```json
+{
+  "name": "schedule_meeting",
+  "description": "Schedule a meeting in Google Calendar",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "summary": {
+        "type": "string",
+        "description": "Meeting title or summary"
+      },
+      "startTime": {
+        "type": "string",
+        "description": "Start time in ISO format (e.g., 2024-01-15T14:00:00Z)"
+      },
+      "endTime": {
+        "type": "string",
+        "description": "End time in ISO format (e.g., 2024-01-15T14:30:00Z)"
+      },
+      "description": {
+        "type": "string",
+        "description": "Meeting description (optional)"
+      },
+      "attendeeEmail": {
+        "type": "string",
+        "description": "Email address of the attendee (optional, defaults to support@aven.com)"
+      }
+    },
+    "required": ["summary", "startTime", "endTime"]
+  }
+}
+```
+
+### 6. Test the Integration
 
 1. **Start your development server**
    ```bash
@@ -79,9 +138,19 @@ npm install
 ### User Flow
 1. **User clicks "Voice Chat"** → Vapi starts listening
 2. **User speaks** → Vapi converts speech to text
-3. **Text is processed** → Your RAG system searches Weaviate
-4. **AI generates response** → Using context from knowledge base
+3. **Text is processed** → Your RAG system searches Weaviate OR function calls are triggered
+4. **AI generates response** → Using context from knowledge base OR function results
 5. **Response is spoken** → Vapi converts text to speech
+
+### Voice Meeting Scheduling Flow
+1. **User says**: "I'd like to schedule a meeting"
+2. **AI responds**: "I'd be happy to help you schedule a meeting. When would you like to meet?"
+3. **User says**: "Tomorrow at 2 PM"
+4. **AI responds**: "Great! What would you like to call this meeting?"
+5. **User says**: "Account review"
+6. **AI calls function**: `schedule_meeting` with extracted parameters
+7. **Webhook processes**: Creates Google Calendar event
+8. **AI confirms**: "Perfect! I've scheduled your account review for tomorrow at 2 PM. You'll receive a calendar invite shortly."
 
 ### Technical Flow
 1. **Frontend** → VoiceButton component handles UI
