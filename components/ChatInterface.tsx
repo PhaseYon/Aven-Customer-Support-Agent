@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useUser } from '@clerk/nextjs'
-import { Send, Bot, User, Loader2 } from 'lucide-react'
+import { Send, Bot, User, Loader2, Trash2 } from 'lucide-react'
 import ChatMessage from './ChatMessage'
+import { getChatHistory, saveChatMessage, clearChatHistory, testDatabaseConnection } from '@/lib/database'
 
 interface Message {
   id: string
@@ -14,19 +15,83 @@ interface Message {
 
 export default function ChatInterface() {
   const { user } = useUser()
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      content: `Hello${user?.firstName ? ` ${user.firstName}` : ''}! I'm your AI assistant. How can I help you today?`,
-      sender: 'bot',
-      timestamp: new Date()
-    }
-  ])
+  const [messages, setMessages] = useState<Message[]>([])
   const [inputMessage, setInputMessage] = useState('')
   const [isTyping, setIsTyping] = useState(false)
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true)
+
+  // Helper function to generate welcome message
+  const getWelcomeMessage = () => {
+    return `Hello${user?.firstName ? ` ${user.firstName}` : ''}! I'm your AI assistant. How can I help you today?`
+  }
+
+  // Load chat history from database
+  useEffect(() => {
+    const loadChatHistory = async () => {
+      if (user?.id) {
+        setIsLoadingHistory(true)
+        try {
+          // Test database connection first
+          const isConnected = await testDatabaseConnection()
+          
+          if (isConnected) {
+            const history = await getChatHistory(user.id)
+            
+            if (history.length > 0) {
+              // Convert database format to component format
+              const formattedHistory = history.map(msg => ({
+                id: msg.id,
+                content: msg.content,
+                sender: msg.sender,
+                timestamp: new Date(msg.timestamp)
+              }))
+              setMessages(formattedHistory)
+            } else {
+              // Show welcome message if no history and save it to database
+              const welcomeMessage = getWelcomeMessage()
+              
+              setMessages([{
+                id: '1',
+                content: welcomeMessage,
+                sender: 'bot',
+                timestamp: new Date()
+              }])
+              
+              // Save welcome message to database
+              await saveChatMessage(user.id, welcomeMessage, 'bot')
+            }
+          } else {
+            // Database not available, show welcome message
+            console.log('Database not available, showing welcome message')
+            const welcomeMessage = getWelcomeMessage()
+            setMessages([{
+              id: '1',
+              content: welcomeMessage,
+              sender: 'bot',
+              timestamp: new Date()
+            }])
+          }
+        } catch (error) {
+          console.error('Error loading chat history:', error)
+          // Show welcome message on error
+          const welcomeMessage = getWelcomeMessage()
+          setMessages([{
+            id: '1',
+            content: welcomeMessage,
+            sender: 'bot',
+            timestamp: new Date()
+          }])
+        } finally {
+          setIsLoadingHistory(false)
+        }
+      }
+    }
+
+    loadChatHistory()
+  }, [user?.id])
 
   const handleSendMessage = async () => {
-    if (!inputMessage.trim()) return
+    if (!inputMessage.trim() || !user?.id) return
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -38,6 +103,9 @@ export default function ChatInterface() {
     setMessages(prev => [...prev, userMessage])
     setInputMessage('')
     setIsTyping(true)
+
+    // Save user message to database
+    await saveChatMessage(user.id, inputMessage, 'user')
 
     try {
       // Call the Gemini API
@@ -66,6 +134,9 @@ export default function ChatInterface() {
         timestamp: new Date()
       }
       setMessages(prev => [...prev, botMessage])
+      
+      // Save bot message to database
+      await saveChatMessage(user.id, data.message, 'bot')
     } catch (error) {
       console.error('Error calling AI API:', error)
       const errorMessage: Message = {
@@ -75,8 +146,30 @@ export default function ChatInterface() {
         timestamp: new Date()
       }
       setMessages(prev => [...prev, errorMessage])
+      
+      // Save error message to database
+      await saveChatMessage(user.id, 'Sorry, I encountered an error. Please try again.', 'bot')
     } finally {
       setIsTyping(false)
+    }
+  }
+
+  const handleClearHistory = async () => {
+    if (!user?.id) return
+    
+    const success = await clearChatHistory(user.id)
+    if (success) {
+      const welcomeMessage = getWelcomeMessage()
+      
+      setMessages([{
+        id: '1',
+        content: welcomeMessage,
+        sender: 'bot',
+        timestamp: new Date()
+      }])
+      
+      // Save welcome message to database after clearing history
+      await saveChatMessage(user.id, welcomeMessage, 'bot')
     }
   }
 
@@ -91,30 +184,50 @@ export default function ChatInterface() {
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden transition-colors duration-300">
       {/* Header */}
       <div className="bg-gradient-to-r from-primary-600 to-primary-700 px-6 py-4">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-            <Bot className="w-6 h-6 text-white" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+              <Bot className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h2 className="text-white font-semibold text-lg">AI Assistant</h2>
+              <p className="text-primary-100 text-sm">
+                {user?.firstName ? `Welcome back, ${user.firstName}!` : 'Online • Ready to help'}
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-white font-semibold text-lg">AI Assistant</h2>
-            <p className="text-primary-100 text-sm">
-              {user?.firstName ? `Welcome back, ${user.firstName}!` : 'Online • Ready to help'}
-            </p>
-          </div>
+          <button
+            onClick={handleClearHistory}
+            className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+            title="Clear chat history"
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
         </div>
       </div>
 
       {/* Messages */}
       <div className="h-96 overflow-y-auto chat-messages p-4 space-y-4 bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-        {messages.map((message) => (
-          <ChatMessage key={message.id} message={message} />
-        ))}
-        
-        {isTyping && (
-          <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            <span className="text-sm">AI is typing...</span>
+        {isLoadingHistory ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <Loader2 className="w-8 h-8 animate-spin text-primary-600 mx-auto mb-2" />
+              <p className="text-gray-500 dark:text-gray-400">Loading chat history...</p>
+            </div>
           </div>
+        ) : (
+          <>
+            {messages.map((message) => (
+              <ChatMessage key={message.id} message={message} />
+            ))}
+            
+            {isTyping && (
+              <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm">AI is typing...</span>
+              </div>
+            )}
+          </>
         )}
       </div>
 
