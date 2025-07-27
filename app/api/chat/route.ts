@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { WeaviateService } from '@/lib/weaviate-client'
 import { GeminiEmbeddingService } from '@/lib/gemini-embeddings'
-import { getChatHistory } from '@/lib/database'
+import { getChatHistory, checkRateLimit } from '@/lib/database'
+import { isRateLimitEnabled } from '@/lib/config'
 import dotenv from 'dotenv'
 
 dotenv.config()
@@ -26,6 +27,26 @@ export async function POST(request: NextRequest) {
         { error: 'Message is required' },
         { status: 400 }
       )
+    }
+
+    // Check rate limiting if enabled
+    if (isRateLimitEnabled() && userId) {
+      const rateLimitCheck = await checkRateLimit(userId)
+      
+      if (!rateLimitCheck.allowed) {
+        const resetTime = rateLimitCheck.resetTime.toLocaleTimeString()
+        return NextResponse.json(
+          { 
+            error: 'Rate limit exceeded',
+            message: `You've reached your daily limit of 35 messages. Your limit will reset at ${resetTime}. Please try again tomorrow.`,
+            remaining: rateLimitCheck.remaining,
+            resetTime: rateLimitCheck.resetTime
+          },
+          { status: 429 }
+        )
+      }
+      
+      console.log(`Rate limit check passed. Remaining messages: ${rateLimitCheck.remaining}`)
     }
 
     // Get recent conversation history (last 10 messages)

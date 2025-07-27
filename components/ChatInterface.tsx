@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { useUser } from '@clerk/nextjs'
-import { Send, Bot, User, Loader2, Trash2 } from 'lucide-react'
+import { Send, Bot, User, Loader2, Trash2, AlertCircle } from 'lucide-react'
 import ChatMessage from './ChatMessage'
 import ConfirmationModal from './ConfirmationModal'
-import { getChatHistory, saveChatMessage, clearChatHistory, testDatabaseConnection } from '@/lib/database'
+import { getChatHistory, saveChatMessage, clearChatHistory, testDatabaseConnection, getRateLimitInfo } from '@/lib/database'
+import { isRateLimitEnabled } from '@/lib/config'
 
 interface Message {
   id: string
@@ -22,6 +23,7 @@ export default function ChatInterface() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(true)
   const [showClearConfirmation, setShowClearConfirmation] = useState(false)
   const [isClient, setIsClient] = useState(false)
+  const [rateLimitInfo, setRateLimitInfo] = useState<{ used: number; remaining: number; resetTime: Date } | null>(null)
 
   // Ensure we're on the client side
   useEffect(() => {
@@ -31,6 +33,18 @@ export default function ChatInterface() {
   // Helper function to generate welcome message
   const getWelcomeMessage = () => {
     return `Hi${user?.firstName ? ` ${user.firstName}` : ''}! I'm Sarah, your Aven support specialist. I'm here to help you with any questions about your account, our services, or anything else you need assistance with. What can I help you with today?`
+  }
+
+  // Load rate limit information
+  const loadRateLimitInfo = async () => {
+    if (!user?.id || !isRateLimitEnabled()) return
+    
+    try {
+      const info = await getRateLimitInfo(user.id)
+      setRateLimitInfo(info)
+    } catch (error) {
+      console.log('Could not load rate limit info:', error)
+    }
   }
 
   // Load chat history from database
@@ -124,6 +138,7 @@ export default function ChatInterface() {
     }
 
     loadChatHistory()
+    loadRateLimitInfo() // Load rate limit info
   }, [user?.id, isClient])
 
   const handleSendMessage = async () => {
@@ -157,6 +172,21 @@ export default function ChatInterface() {
       })
 
       if (!response.ok) {
+        const errorData = await response.json()
+        
+        // Handle rate limit error specifically
+        if (response.status === 429) {
+          const rateLimitMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            content: errorData.message || 'You have reached your daily message limit. Please try again tomorrow.',
+            sender: 'bot',
+            timestamp: new Date()
+          }
+          setMessages(prev => [...prev, rateLimitMessage])
+          await saveChatMessage(user.id, rateLimitMessage.content, 'bot')
+          return
+        }
+        
         throw new Error('Failed to get response from AI')
       }
 
@@ -179,6 +209,9 @@ export default function ChatInterface() {
       
       // Save bot message to database
       await saveChatMessage(user.id, data.message, 'bot')
+      
+      // Update rate limit info
+      await loadRateLimitInfo()
     } catch (error) {
       console.error('Error calling AI API:', error)
       const errorMessage: Message = {
@@ -240,6 +273,14 @@ export default function ChatInterface() {
               <p className="text-primary-100 text-sm">
                 {user?.firstName ? `Welcome back, ${user.firstName}!` : 'Online • Ready to help'}
               </p>
+              {isRateLimitEnabled() && rateLimitInfo && (
+                <div className="flex items-center space-x-1 mt-1">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  <span className="text-primary-100 text-xs">
+                    {rateLimitInfo.remaining} messages remaining today
+                  </span>
+                </div>
+              )}
             </div>
           </div>
           <button

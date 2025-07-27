@@ -156,4 +156,78 @@ export async function clearChatHistory(userId: string): Promise<boolean> {
     console.error('Exception in clearChatHistory:', err)
     return false
   }
+}
+
+// Rate Limiting Functions
+export async function checkRateLimit(userId: string): Promise<{ allowed: boolean; remaining: number; resetTime: Date }> {
+  try {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0) // Start of today
+    
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1) // Start of tomorrow
+
+    // Count user messages sent today
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .select('created_at')
+      .eq('user_id', userId)
+      .eq('sender', 'user')
+      .gte('created_at', today.toISOString())
+      .lt('created_at', tomorrow.toISOString())
+
+    if (error) {
+      console.error('Error checking rate limit:', error)
+      return { allowed: true, remaining: 35, resetTime: tomorrow } // Allow if error
+    }
+
+    const messageCount = data?.length || 0
+    const maxMessages = 35
+    const remaining = Math.max(0, maxMessages - messageCount)
+    const allowed = messageCount < maxMessages
+
+    return {
+      allowed,
+      remaining,
+      resetTime: tomorrow
+    }
+  } catch (err) {
+    console.error('Exception in checkRateLimit:', err)
+    return { allowed: true, remaining: 35, resetTime: new Date() } // Allow if error
+  }
+}
+
+export async function getRateLimitInfo(userId: string): Promise<{ used: number; remaining: number; resetTime: Date }> {
+  try {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .select('created_at')
+      .eq('user_id', userId)
+      .eq('sender', 'user')
+      .gte('created_at', today.toISOString())
+      .lt('created_at', tomorrow.toISOString())
+
+    if (error) {
+      console.error('Error getting rate limit info:', error)
+      return { used: 0, remaining: 35, resetTime: tomorrow }
+    }
+
+    const used = data?.length || 0
+    const remaining = Math.max(0, 35 - used)
+
+    return {
+      used,
+      remaining,
+      resetTime: tomorrow
+    }
+  } catch (err) {
+    console.error('Exception in getRateLimitInfo:', err)
+    return { used: 0, remaining: 35, resetTime: new Date() }
+  }
 } 
