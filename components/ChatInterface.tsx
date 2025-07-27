@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useUser } from '@clerk/nextjs'
-import { Send, Bot, User, Loader2, Trash2, AlertCircle } from 'lucide-react'
+import { Send, Bot, User, Loader2, Trash2, AlertCircle, Calendar } from 'lucide-react'
 import ChatMessage from './ChatMessage'
 import ConfirmationModal from './ConfirmationModal'
+import MeetingRequestModal from './MeetingRequestModal'
 import { getChatHistory, saveChatMessage, clearChatHistory, testDatabaseConnection, getRateLimitInfo } from '@/lib/database'
 import { isRateLimitEnabled } from '@/lib/config'
 
@@ -24,6 +25,7 @@ export default function ChatInterface() {
   const [showClearConfirmation, setShowClearConfirmation] = useState(false)
   const [isClient, setIsClient] = useState(false)
   const [rateLimitInfo, setRateLimitInfo] = useState<{ used: number; remaining: number; resetTime: Date } | null>(null)
+  const [showMeetingModal, setShowMeetingModal] = useState(false)
 
   // Ensure we're on the client side
   useEffect(() => {
@@ -259,6 +261,20 @@ export default function ChatInterface() {
     }
   }
 
+  const handleMeetingScheduled = (meetingDetails: string) => {
+    const meetingMessage: Message = {
+      id: Date.now().toString(),
+      content: meetingDetails,
+      sender: 'bot',
+      timestamp: new Date()
+    }
+    setMessages(prev => [...prev, meetingMessage])
+  }
+
+  const handleRequestMeeting = () => {
+    setShowMeetingModal(true)
+  }
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden transition-colors duration-300">
       {/* Header */}
@@ -283,13 +299,23 @@ export default function ChatInterface() {
               )}
             </div>
           </div>
-          <button
-            onClick={handleClearHistoryClick}
-            className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-            title="Clear chat history"
-          >
-            <Trash2 className="w-5 h-5" />
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handleRequestMeeting}
+              className="px-3 py-2 bg-white/20 text-white hover:bg-white/30 rounded-lg transition-colors flex items-center space-x-2"
+              title="Request a meeting"
+            >
+              <Calendar className="w-4 h-4" />
+              <span className="text-sm font-medium">Request Meeting</span>
+            </button>
+            <button
+              onClick={handleClearHistoryClick}
+              className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+              title="Clear chat history"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -362,6 +388,14 @@ export default function ChatInterface() {
         confirmText="Clear History"
         cancelText="Cancel"
         type="danger"
+      />
+
+      {/* Meeting Request Modal */}
+      <MeetingRequestModal
+        isOpen={showMeetingModal}
+        onClose={() => setShowMeetingModal(false)}
+        onMeetingScheduled={handleMeetingScheduled}
+        userId={user?.id || ''}
       />
     </div>
   )
