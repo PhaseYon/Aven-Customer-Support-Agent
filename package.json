@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "vectorize": "ts-node --project tsconfig.scripts.json scripts/vectorize-aven-data.ts",
+    "test-chunking": "ts-node --project tsconfig.scripts.json scripts/test-chunking.ts",
+    "test-weaviate": "ts-node --project tsconfig.scripts.json scripts/test-weaviate-connection.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.27.1",
@@ -14,10 +17,12 @@
     "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.52.1",
     "dotenv": "^17.2.1",
+    "langchain": "^0.3.30",
     "lucide-react": "^0.526.0",
     "next": "^15.4.4",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "weaviate-ts-client": "^2.2.0"
   },
   "devDependencies": {
     "@types/node": "^20",
